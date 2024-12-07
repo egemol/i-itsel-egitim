@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İşitsel Eğitim - Oyunlar</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="index.html" class="logo">İşitsel Eğitim</a>
+                <div class="nav-links">
+                    <span id="user-name" class="user-info"></span>
+                    <span id="user-level" class="user-info"></span>
+                    <button class="btn btn-primary" onclick="logout()">Çıkış Yap</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <section class="welcome">
+                <h1>Hoş Geldin, <span id="welcome-name"></span>!</h1>
+                <p>Hangi oyunu oynamak istersin?</p>
+            </section>
+
+            <div class="games-grid">
+                <!-- Frekans Eğitimi -->
+                <div class="game-card" onclick="window.location.href='games/frequency.html'">
+                    <h3>Frekans Eğitimi</h3>
+                    <p>Farklı frekanslardaki sesleri ayırt etmeyi öğren</p>
+                    <div class="game-stats">
+                        <div class="stat">
+                            <div class="stat-label">En Yüksek Skor</div>
+                            <div id="freq-high-score" class="stat-value">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Oynanma</div>
+                            <div id="freq-games-played" class="stat-value">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ses Seviyesi Eğitimi -->
+                <div class="game-card" onclick="window.location.href='games/volume.html'">
+                    <h3>Ses Seviyesi Eğitimi</h3>
+                    <p>Ses seviyelerindeki farklılıkları algılamayı geliştir</p>
+                    <div class="game-stats">
+                        <div class="stat">
+                            <div class="stat-label">En Yüksek Skor</div>
+                            <div id="vol-high-score" class="stat-value">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Oynanma</div>
+                            <div id="vol-games-played" class="stat-value">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pan Eğitimi -->
+                <div class="game-card" onclick="window.location.href='games/pan.html'">
+                    <h3>Pan Eğitimi</h3>
+                    <p>Seslerin konumlarını algılamayı öğren</p>
+                    <div class="game-stats">
+                        <div class="stat">
+                            <div class="stat-label">En Yüksek Skor</div>
+                            <div id="pan-high-score" class="stat-value">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Oynanma</div>
+                            <div id="pan-games-played" class="stat-value">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="profile">
+                <div class="xp-progress-container">
+                    <div class="xp-progress"></div>
+                    <span id="xp-text">0/1000 XP</span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+</body>
+</html>

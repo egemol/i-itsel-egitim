@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ses Seviyesi Eğitimi - İşitsel Eğitim</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="../dashboard.html" class="logo">İşitsel Eğitim</a>
+                <div class="nav-links">
+                    <span id="user-name" class="user-info"></span>
+                    <span id="user-level" class="user-info"></span>
+                    <button class="btn btn-primary" onclick="logout()">Çıkış Yap</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div id="game-container">
+                <h1>Ses Seviyesi Eğitimi</h1>
+                <p>Hangi ses daha yüksek?</p>
+                
+                <div class="game-buttons">
+                    <button id="sound1" class="btn btn-primary">Ses 1</button>
+                    <button id="sound2" class="btn btn-primary">Ses 2</button>
+                </div>
+
+                <div class="game-stats">
+                    <div class="stat">
+                        <div class="stat-label">Skor</div>
+                        <div id="current-score" class="stat-value">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">En Yüksek</div>
+                        <div id="high-score" class="stat-value">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/volume.js"></script>
+</body>
+</html>

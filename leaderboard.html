@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İşitsel Eğitim - Liderlik Tablosu</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">İşitsel Eğitim</div>
+            <div class="nav-links">
+                <a href="index.html">Ana Sayfa</a>
+                <a href="games.html">Oyunlar</a>
+                <a href="dashboard.html" class="user-profile">
+                    <span id="user-name">Kullanıcı</span>
+                    <div class="level-badge" id="user-level">Seviye 1</div>
+                </a>
+                <a href="leaderboard.html" class="active">Sıralama</a>
+                <a href="#" class="logout-btn" onclick="logout()">Çıkış Yap</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="leaderboard-page">
+        <div class="leaderboard-container">
+            <h1>Sıralama Tablosu</h1>
+            
+            <div class="leaderboard-tabs">
+                <button class="tab active" onclick="showLeaderboard('xp')">Genel XP</button>
+                <button class="tab" onclick="showLeaderboard('frequency')">Frekans</button>
+                <button class="tab" onclick="showLeaderboard('volume')">Ses Şiddeti</button>
+                <button class="tab" onclick="showLeaderboard('pan')">Pan</button>
+            </div>
+
+            <div class="leaderboard-content">
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Sıra</th>
+                            <th>Kullanıcı</th>
+                            <th>Seviye</th>
+                            <th>Puan</th>
+                            <th>Son Oyun</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="friends-container">
+            <h2>Arkadaşlar</h2>
+            <div class="friends-list" id="friends-list">
+                <!-- JavaScript ile doldurulacak -->
+            </div>
+            <div class="add-friend">
+                <input type="email" id="friend-email" placeholder="Arkadaşının e-postası">
+                <button onclick="addFriend()">Ekle</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/leaderboard.js"></script>
+</body>
+</html>
