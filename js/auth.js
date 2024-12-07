@@ -50,8 +50,9 @@ function updateUIForAuthState(user) {
     const authLinks = document.getElementById('auth-links');
     const userLinks = document.getElementById('user-links');
     const xpDisplay = document.querySelector('.xp-display');
-    const gameButtons = document.querySelectorAll('.game-card button');
+    const gameButtons = document.querySelectorAll('.game-button');
     const guestNotices = document.querySelectorAll('.alert-warning');
+    const profileNavItem = document.getElementById('profile-nav-item');
 
     if (user) {
         // Kullanıcı giriş yapmış
@@ -59,6 +60,7 @@ function updateUIForAuthState(user) {
         if (authLinks) authLinks.style.display = 'none';
         if (userLinks) userLinks.style.display = 'block';
         if (xpDisplay) xpDisplay.style.display = 'block';
+        if (profileNavItem) profileNavItem.style.display = 'block';
 
         // Tüm misafir uyarılarını gizle
         guestNotices.forEach(notice => {
@@ -78,6 +80,7 @@ function updateUIForAuthState(user) {
         if (authLinks) authLinks.style.display = 'block';
         if (userLinks) userLinks.style.display = 'none';
         if (xpDisplay) xpDisplay.style.display = 'none';
+        if (profileNavItem) profileNavItem.style.display = 'none';
 
         // Tüm misafir uyarılarını göster
         guestNotices.forEach(notice => {

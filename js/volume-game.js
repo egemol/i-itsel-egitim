@@ -13,15 +13,24 @@ const totalQuestions = 10;
 const volumeLevels = Array.from({length: 17}, (_, i) => -24 + i * 3);
 
 // Available audio files
-const audioFiles = [
-    'flow-211881.aif',
-    'movement-200697.aif',
-    'perfect-beauty-191271.aif',
-    'the-best-jazz-club-in-new-orleans-164472.aif'
+const audioFileNames = [
+    'flow-211881.wav',
+    'movement-200697.wav',
+    'perfect-beauty-191271.wav',
+    'the-best-jazz-club-in-new-orleans-164472.wav'
 ];
 
-// Current audio file
-let currentAudioFile;
+// Current audio file for the session
+let currentAudioFile = null;
+
+// Function to get random audio file path
+function getRandomAudioFile() {
+    if (!currentAudioFile) {
+        const randomFile = audioFileNames[Math.floor(Math.random() * audioFileNames.length)];
+        currentAudioFile = `/audio/${randomFile}`;
+    }
+    return currentAudioFile;
+}
 
 // Initialize audio context
 function initAudio() {
@@ -64,53 +73,30 @@ function getVolumeOptions(correctVolume) {
     return options.sort(() => Math.random() - 0.5);
 }
 
-// Play original sound
-async function playOriginalSound() {
+// Play sound
+async function playSound(volume) {
     try {
-        stopCurrentSound();
-        
-        const response = await fetch(`audio/${currentAudioFile}`);
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        stopCurrentSound();
         
         currentSource = audioContext.createBufferSource();
         currentSource.buffer = audioBuffer;
         currentSource.connect(gainNode);
-        gainNode.gain.setValueAtTime(1, audioContext.currentTime); // Reference level
+        gainNode.connect(audioContext.destination);
+        
+        gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
         currentSource.start();
         
-        // Stop after buffer duration
         setTimeout(() => {
             stopCurrentSound();
-        }, audioBuffer.duration * 1000);
+        }, 2000);
     } catch (error) {
-        console.error('Error playing original sound:', error);
-        playFallbackSound(1);
-    }
-}
-
-// Play modified sound
-async function playModifiedSound() {
-    try {
-        stopCurrentSound();
-        
-        const response = await fetch(`audio/${currentAudioFile}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        currentSource = audioContext.createBufferSource();
-        currentSource.buffer = audioBuffer;
-        currentSource.connect(gainNode);
-        gainNode.gain.setValueAtTime(dbToGain(currentVolume), audioContext.currentTime);
-        currentSource.start();
-        
-        // Stop after buffer duration
-        setTimeout(() => {
-            stopCurrentSound();
-        }, audioBuffer.duration * 1000);
-    } catch (error) {
-        console.error('Error playing modified sound:', error);
-        playFallbackSound(dbToGain(currentVolume));
+        console.error('Error playing sound:', error);
+        playFallbackSound(volume);
     }
 }
 
@@ -152,7 +138,6 @@ function startNewRound() {
     initAudio();
     stopCurrentSound();
     currentVolume = generateRandomVolume();
-    currentAudioFile = audioFiles[Math.floor(Math.random() * audioFiles.length)];
     const options = getVolumeOptions(currentVolume);
     updateVolumeButtons(options);
     enableVolumeButtons();
@@ -233,8 +218,8 @@ function endGame() {
 }
 
 // Event Listeners
-document.getElementById('play-original').addEventListener('click', playOriginalSound);
-document.getElementById('play-modified').addEventListener('click', playModifiedSound);
+document.getElementById('play-original').addEventListener('click', () => playSound(1));
+document.getElementById('play-modified').addEventListener('click', () => playSound(dbToGain(currentVolume)));
 document.getElementById('vol-next-btn').addEventListener('click', nextVolumeGame);
 
 // Add click listeners to volume buttons

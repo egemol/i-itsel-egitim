@@ -8,19 +8,32 @@ let filterNode = null;
 let score = 0;
 let questionCount = 0;
 let currentFrequency = 0;
-let currentAudioFile = '';
+let currentAudioFile = null;
 const MAX_QUESTIONS = 10;
 
 // Frequency levels in Hz
 const frequencies = [100, 250, 500, 1000, 2000, 4000, 8000];
 
+// Initialize Firebase Storage
+const storage = firebase.storage();
+const storageRef = storage.ref();
+
 // Available audio files
-const audioFiles = [
-    'flow-211881.aif',
-    'movement-200697.aif',
-    'perfect-beauty-191271.aif',
-    'the-best-jazz-club-in-new-orleans-164472.aif'
+const audioFileNames = [
+    'flow-211881.wav',
+    'movement-200697.wav',
+    'perfect-beauty-191271.wav',
+    'the-best-jazz-club-in-new-orleans-164472.wav'
 ];
+
+// Function to get random audio file path
+function getRandomAudioFile() {
+    if (!currentAudioFile) {
+        const randomFile = audioFileNames[Math.floor(Math.random() * audioFileNames.length)];
+        currentAudioFile = `/audio/${randomFile}`;
+    }
+    return currentAudioFile;
+}
 
 // Initialize audio context
 function initAudio() {
@@ -67,66 +80,73 @@ function getFrequencyOptions(correctFreq) {
     return options.sort(() => Math.random() - 0.5);
 }
 
-// Play original sound
-async function playOriginalSound() {
+// Load audio file from Netlify
+async function loadAudioFile(frequency) {
     try {
-        stopCurrentSound();
-        
-        const response = await fetch(`audio/${currentAudioFile}`);
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        return audioBuffer;
+    } catch (error) {
+        console.warn('Failed to load audio file:', error);
+        return generateSineWave(frequency);
+    }
+}
+
+async function playSound(frequency, isModified = false) {
+    try {
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
+        stopCurrentSound();
+        
         currentSource = audioContext.createBufferSource();
         currentSource.buffer = audioBuffer;
-        currentSource.connect(gainNode);
+        
+        if (isModified) {
+            // Create bandpass filter for modified sound
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = frequency;
+            filter.Q.value = 1;
+            
+            // Connect nodes: source -> filter -> gain -> destination
+            currentSource.connect(filter);
+            filter.connect(gainNode);
+        } else {
+            // Connect nodes for original sound: source -> gain -> destination
+            currentSource.connect(gainNode);
+        }
+        
+        gainNode.connect(audioContext.destination);
         gainNode.gain.setValueAtTime(1, audioContext.currentTime);
         currentSource.start();
         
-        // Stop after buffer duration
         setTimeout(() => {
             stopCurrentSound();
-        }, audioBuffer.duration * 1000);
+        }, 2000);
     } catch (error) {
-        console.error('Error playing original sound:', error);
-        playFallbackSound(1000);
+        console.error('Error playing sound:', error);
+        playFallbackSound(frequency);
     }
+}
+
+// Play original sound
+async function playOriginalSound() {
+    await playSound(currentFrequency, false);
 }
 
 // Play modified sound
 async function playModifiedSound() {
-    try {
-        stopCurrentSound();
-        
-        const response = await fetch(`audio/${currentAudioFile}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        // Create and configure filter
-        filterNode = audioContext.createBiquadFilter();
-        filterNode.type = "peaking"; // EQ band
-        filterNode.frequency.value = currentFrequency;
-        filterNode.Q.value = 1; // Bandwidth
-        filterNode.gain.value = 15; // +15 dB boost at the frequency
-        
-        currentSource = audioContext.createBufferSource();
-        currentSource.buffer = audioBuffer;
-        currentSource.connect(filterNode);
-        filterNode.connect(gainNode);
-        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
-        currentSource.start();
-        
-        // Stop after buffer duration
-        setTimeout(() => {
-            stopCurrentSound();
-        }, audioBuffer.duration * 1000);
-    } catch (error) {
-        console.error('Error playing modified sound:', error);
-        playFallbackSound(currentFrequency);
-    }
+    await playSound(currentFrequency, true);
 }
 
 // Fallback sound function
 function playFallbackSound(frequency) {
+    console.warn('Using fallback sine wave sound');
     stopCurrentSound();
     
     currentSource = audioContext.createOscillator();
@@ -165,7 +185,7 @@ function startNewRound() {
     initAudio();
     stopCurrentSound();
     currentFrequency = generateRandomFrequency();
-    currentAudioFile = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+    currentAudioFile = getRandomAudioFile();
     document.getElementById('frequency-slider').value = Math.log10(1000 / 20) + 1.301; // Reset to 1kHz
     document.getElementById('freq-guess-btn').style.display = 'block';
     document.getElementById('frequency-slider').disabled = false;

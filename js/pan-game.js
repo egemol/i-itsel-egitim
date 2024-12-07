@@ -8,24 +8,31 @@ let currentSource = null;
 let score = 0;
 let questionCount = 0;
 let currentPan = 0;
-let currentAudioFile = '';
+let currentAudioFile = null;
 const MAX_QUESTIONS = 10;
 
 // Available audio files
-const audioFiles = [
-    'flow-211881.aif',
-    'movement-200697.aif',
-    'perfect-beauty-191271.aif',
-    'the-best-jazz-club-in-new-orleans-164472.aif'
+const audioFileNames = [
+    'flow-211881.wav',
+    'movement-200697.wav',
+    'perfect-beauty-191271.wav',
+    'the-best-jazz-club-in-new-orleans-164472.wav'
 ];
+
+// Function to get random audio file path
+function getRandomAudioFile() {
+    if (!currentAudioFile) {
+        const randomFile = audioFileNames[Math.floor(Math.random() * audioFileNames.length)];
+        currentAudioFile = `/audio/${randomFile}`;
+    }
+    return currentAudioFile;
+}
 
 // Initialize audio context
 function initAudio() {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         gainNode = audioContext.createGain();
-        panNode = audioContext.createStereoPanner();
-        panNode.connect(gainNode);
         gainNode.connect(audioContext.destination);
     }
 }
@@ -49,54 +56,37 @@ function generateRandomPan() {
     return panValues[Math.floor(Math.random() * panValues.length)];
 }
 
-// Play original sound
-async function playOriginalSound() {
+// Play sound
+async function playSound(pan) {
     try {
-        stopCurrentSound();
-        
-        const response = await fetch(`audio/${currentAudioFile}`);
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
-        currentSource = audioContext.createBufferSource();
-        currentSource.buffer = audioBuffer;
-        currentSource.connect(gainNode);
-        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
-        currentSource.start();
-        
-        // Stop after buffer duration
-        setTimeout(() => {
-            stopCurrentSound();
-        }, audioBuffer.duration * 1000);
-    } catch (error) {
-        console.error('Error playing original sound:', error);
-        playFallbackSound(0);
-    }
-}
-
-// Play modified sound
-async function playModifiedSound() {
-    try {
         stopCurrentSound();
         
-        const response = await fetch(`audio/${currentAudioFile}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
         currentSource = audioContext.createBufferSource();
         currentSource.buffer = audioBuffer;
-        currentSource.connect(panNode);
-        panNode.pan.setValueAtTime(currentPan, audioContext.currentTime);
+        
+        // Create and configure stereo panner
+        const panner = audioContext.createStereoPanner();
+        panner.pan.setValueAtTime(pan, audioContext.currentTime);
+        
+        // Connect nodes: source -> panner -> gain -> destination
+        currentSource.connect(panner);
+        panner.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
         gainNode.gain.setValueAtTime(1, audioContext.currentTime);
         currentSource.start();
         
-        // Stop after buffer duration
         setTimeout(() => {
             stopCurrentSound();
-        }, audioBuffer.duration * 1000);
+        }, 2000);
     } catch (error) {
-        console.error('Error playing modified sound:', error);
-        playFallbackSound(currentPan);
+        console.error('Error playing sound:', error);
+        playFallbackSound(pan);
     }
 }
 
@@ -120,12 +110,21 @@ function playFallbackSound(pan) {
     }, 2000);
 }
 
+// Play original sound (center)
+async function playOriginalSound() {
+    await playSound(0);
+}
+
+// Play modified sound (with pan)
+async function playModifiedSound() {
+    await playSound(currentPan);
+}
+
 // Start new game round
 function startNewRound() {
     initAudio();
     stopCurrentSound();
     currentPan = generateRandomPan();
-    currentAudioFile = audioFiles[Math.floor(Math.random() * audioFiles.length)];
     document.getElementById('pan-slider').value = 0; // Reset to center
     document.getElementById('pan-value').textContent = '0';
     document.getElementById('pan-guess-btn').style.display = 'block';

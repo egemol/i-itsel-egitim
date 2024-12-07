@@ -25,6 +25,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="games.html">Oyunlar</a>
                     </li>
+                    <li class="nav-item" id="profile-nav-item" style="display: none;">
+                        <a class="nav-link" href="profile.html">Profilim</a>
+                    </li>
+                    <li class="nav-item" id="auth-links">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Giriş Yap</a>
+                    </li>
+                    <li class="nav-item" id="user-links" style="display: none;">
+                        <a class="nav-link" href="#" id="logout-button">Çıkış Yap</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -80,6 +89,7 @@
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/frequency-game.js"></script>

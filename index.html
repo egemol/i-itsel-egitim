@@ -12,12 +12,21 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">İşitsel Eğitim</a>
+            <a class="navbar-brand" href="index.html">İşitsel Eğitim</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="index.html">Ana Sayfa</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="games.html">Oyunlar</a>
+                    </li>
+                    <li class="nav-item" id="profile-nav-item" style="display: none;">
+                        <a class="nav-link" href="profile.html">Profilim</a>
+                    </li>
                     <li class="nav-item" id="auth-links">
                         <button class="btn btn-primary me-2" onclick="showLoginModal()">Giriş Yap</button>
                         <button class="btn btn-secondary" onclick="showRegisterModal()">Kayıt Ol</button>

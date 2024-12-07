@@ -352,3 +352,70 @@ footer {
 .fade-in {
     animation: fadeIn 0.3s ease-in;
 }
+
+/* Profile Page Styles */
+.profile-section {
+    margin-top: 20px;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 15px;
+}
+
+.achievement {
+    text-align: center;
+    padding: 15px;
+    border-radius: 10px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.achievement.achieved {
+    background: #e8f5e9;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.achievement.locked {
+    opacity: 0.7;
+}
+
+.achievement i {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.friend-item, .leaderboard-item {
+    padding: 10px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.friend-item:hover, .leaderboard-item:hover {
+    background: #e9ecef;
+}
+
+.rank {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #6c757d;
+}
+
+.progress {
+    height: 10px;
+    border-radius: 5px;
+}
+
+.progress-bar {
+    background-color: #28a745;
+    transition: width 0.3s ease;
+}
+
+/* Leaderboard colors */
+.text-bronze {
+    color: #cd7f32;
+}
