@@ -1,264 +1,298 @@
-// Web Audio API context
-let audioContext;
-let gainNode;
-let panNode;
+let audioContext = null;
 let currentSource = null;
-
-// Game state
+let gainNode = null;
+let currentPan = null;
+let currentAudioPath = null;
+let audioBuffer = null;
 let score = 0;
 let questionCount = 0;
-let currentPan = 0;
-let currentAudioFile = null;
-const MAX_QUESTIONS = 10;
-
-// Available audio files
-const audioFileNames = [
-    'flow-211881.wav',
-    'movement-200697.wav',
-    'perfect-beauty-191271.wav',
-    'the-best-jazz-club-in-new-orleans-164472.wav'
-];
-
-// Function to get random audio file path
-function getRandomAudioFile() {
-    if (!currentAudioFile) {
-        const randomFile = audioFileNames[Math.floor(Math.random() * audioFileNames.length)];
-        currentAudioFile = `/audio/${randomFile}`;
-    }
-    return currentAudioFile;
-}
 
 // Initialize audio context
 function initAudio() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        gainNode = audioContext.createGain();
-        gainNode.connect(audioContext.destination);
+    if (audioContext) return;
+    
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    gainNode = audioContext.createGain();
+    gainNode.connect(audioContext.destination);
+}
+
+// Stop current sound
+function stopCurrentSound() {
+    if (currentSource) {
+        currentSource.stop();
+        currentSource = null;
     }
 }
 
-// Stop current sound if playing
-function stopCurrentSound() {
-    if (currentSource) {
-        try {
-            currentSource.stop();
-        } catch (e) {
-            // Ignore errors if sound is already stopped
-        }
-        currentSource = null;
+// Get random audio file
+function getRandomAudioFile() {
+    const audioFiles = [
+        'flow-211881.wav',
+        'movement-200697.wav',
+        'perfect-beauty-191271.wav',
+        'the-best-jazz-club-in-new-orleans-164472.wav'
+    ];
+    return `/audio/${audioFiles[Math.floor(Math.random() * audioFiles.length)]}`;
+}
+
+// Load audio file
+async function loadAudioFile(path) {
+    try {
+        const response = await fetch(path);
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+        console.error('Error loading audio file:', error);
     }
 }
 
 // Generate random pan value between -1 and 1
 function generateRandomPan() {
-    // Generate pan values at -1, -0.5, 0, 0.5, or 1
-    const panValues = [-1, -0.5, 0, 0.5, 1];
-    return panValues[Math.floor(Math.random() * panValues.length)];
+    return Math.round((Math.random() * 2 - 1) * 100) / 100;
 }
 
-// Play sound
-async function playSound(pan) {
+// Play original sound
+async function playOriginalSound() {
+    if (!audioContext) initAudio();
+    if (!audioBuffer) return;
+    stopCurrentSound();
+    
     try {
-        const audioPath = getRandomAudioFile();
-        const response = await fetch(audioPath);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        stopCurrentSound();
-        
+        currentSource = audioContext.createBufferSource();
+        currentSource.buffer = audioBuffer;
+        currentSource.connect(gainNode);
+        currentSource.start();
+        currentSource.onended = stopCurrentSound;
+    } catch (error) {
+        console.error('Error playing original sound:', error);
+    }
+}
+
+// Play modified sound
+async function playModifiedSound() {
+    if (!currentPan) return;
+    if (!audioContext) initAudio();
+    if (!audioBuffer) return;
+    stopCurrentSound();
+    
+    try {
         currentSource = audioContext.createBufferSource();
         currentSource.buffer = audioBuffer;
         
-        // Create and configure stereo panner
-        const panner = audioContext.createStereoPanner();
-        panner.pan.setValueAtTime(pan, audioContext.currentTime);
+        const panNode = audioContext.createStereoPanner();
+        panNode.pan.value = currentPan;
         
-        // Connect nodes: source -> panner -> gain -> destination
-        currentSource.connect(panner);
-        panner.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        currentSource.connect(panNode);
+        panNode.connect(gainNode);
         
-        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
         currentSource.start();
-        
-        setTimeout(() => {
-            stopCurrentSound();
-        }, 2000);
+        currentSource.onended = stopCurrentSound;
     } catch (error) {
-        console.error('Error playing sound:', error);
-        playFallbackSound(pan);
+        console.error('Error playing modified sound:', error);
     }
 }
 
-// Fallback sound function
-function playFallbackSound(pan) {
+// Check pan guess
+function checkPanGuess(guessedPan) {
+    if (!currentPan) return;
+    
     stopCurrentSound();
     
-    currentSource = audioContext.createOscillator();
-    currentSource.type = 'sine';
-    currentSource.frequency.setValueAtTime(440, audioContext.currentTime);
-    
-    currentSource.connect(panNode);
-    panNode.pan.setValueAtTime(pan, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    
-    currentSource.start();
-    
-    // Stop after 2 seconds
-    setTimeout(() => {
-        stopCurrentSound();
-    }, 2000);
-}
-
-// Play original sound (center)
-async function playOriginalSound() {
-    await playSound(0);
-}
-
-// Play modified sound (with pan)
-async function playModifiedSound() {
-    await playSound(currentPan);
-}
-
-// Start new game round
-function startNewRound() {
-    initAudio();
-    stopCurrentSound();
-    currentPan = generateRandomPan();
-    document.getElementById('pan-slider').value = 0; // Reset to center
-    document.getElementById('pan-value').textContent = '0';
-    document.getElementById('pan-guess-btn').style.display = 'block';
-    document.getElementById('pan-slider').disabled = false;
-    document.querySelector('.answer-feedback').style.display = 'none';
-    document.getElementById('pan-correct-marker').style.display = 'none';
-}
-
-// Check user's pan guess
-function checkPanGuess() {
-    const slider = document.getElementById('pan-slider');
-    const guessedPan = parseFloat(slider.value);
-    
-    // Calculate accuracy based on distance
-    const distance = Math.abs(currentPan - guessedPan);
-    
-    // Calculate points (max 100 points)
-    let points = 0;
-    if (distance <= 0.25) { // Within 0.25
-        points = 100;
-    } else if (distance <= 0.5) { // Within 0.5
-        points = 75;
-    } else if (distance <= 0.75) { // Within 0.75
-        points = 50;
-    } else if (distance <= 1) { // Within 1
-        points = 25;
-    }
-    
-    // Update score with weighted points
-    score += points;
+    const difference = Math.abs(guessedPan - currentPan);
     questionCount++;
     
-    // Show answer feedback
-    document.querySelector('.answer-feedback').style.display = 'block';
-    document.getElementById('correct-pan').textContent = currentPan.toFixed(2);
-    document.getElementById('guessed-pan').textContent = guessedPan.toFixed(2);
+    if (difference <= 0.1) {
+        score += 10;
+    }
     
-    // Show correct answer marker
+    document.getElementById('pan-score').textContent = score;
+    document.getElementById('pan-question-count').textContent = questionCount;
+    
+    // Doğru cevap göstergesini ekle
     const marker = document.getElementById('pan-correct-marker');
-    const sliderWidth = slider.offsetWidth;
-    const sliderMin = parseFloat(slider.min);
-    const sliderMax = parseFloat(slider.max);
-    const position = ((currentPan - sliderMin) / (sliderMax - sliderMin)) * sliderWidth;
-    
     marker.style.display = 'block';
-    marker.style.left = `${position}px`;
+    marker.style.left = `${((currentPan + 1) / 2) * 100}%`;
     
-    // Update accuracy display
-    const accuracy = (score / (questionCount * 100)) * 100;
-    document.getElementById('pan-accuracy').textContent = accuracy.toFixed(1);
+    document.querySelector('.answer-feedback').style.display = 'block';
+    document.getElementById('correct-pan').textContent = currentPan;
+    document.getElementById('guessed-pan').textContent = guessedPan;
     
-    // Show next button and disable controls
+    const feedbackCard = document.querySelector('.feedback-card');
+    const feedback = getFeedbackMessage(Math.abs(difference * 100));
+    feedbackCard.innerHTML = `
+        <h4 class="text-center mb-3">${feedback.icon}</h4>
+        <p class="feedback-message mb-3">${feedback.message}</p>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>Doğru pan değeri:</span>
+            <strong><span id="correct-pan">${currentPan}</span></strong>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+            <span>Tahmininiz:</span>
+            <strong><span id="guessed-pan">${guessedPan}</span></strong>
+        </div>
+    `;
+    
     document.getElementById('pan-guess-btn').style.display = 'none';
     document.getElementById('pan-next-btn').style.display = 'block';
+    document.getElementById('pan-slider').disabled = true;
     document.getElementById('play-original').disabled = true;
     document.getElementById('play-modified').disabled = true;
-    document.getElementById('pan-slider').disabled = true;
     
-    updateScore();
+    if (questionCount >= 10) {
+        endGame();
+    }
 }
 
-// Convert pan value to text description
-function getPanText(pan) {
-    if (pan === -1) return "Tamamen Sol (-1)";
-    if (pan === -0.5) return "Yarı Sol (-0.5)";
-    if (pan === 0) return "Orta (0)";
-    if (pan === 0.5) return "Yarı Sağ (0.5)";
-    if (pan === 1) return "Tamamen Sağ (1)";
-    return `${pan.toFixed(2)}`;
+// Move to next question
+async function nextQuestion() {
+    stopCurrentSound();
+    currentPan = generateRandomPan();
+    currentAudioPath = getRandomAudioFile();
+    
+    // Yeni ses dosyasını yükle
+    if (!audioContext) initAudio();
+    await loadAudioFile(currentAudioPath);
+    
+    document.querySelector('.answer-feedback').style.display = 'none';
+    document.getElementById('pan-next-btn').style.display = 'none';
+    document.getElementById('pan-guess-btn').style.display = 'block';
+    document.getElementById('pan-slider').disabled = false;
+    document.getElementById('pan-slider').value = 0;
+    document.getElementById('pan-correct-marker').style.display = 'none';
+    document.getElementById('play-original').disabled = false;
+    document.getElementById('play-modified').disabled = false;
 }
 
-// Update score display
-function updateScore() {
+// Initialize game
+async function initGame() {
+    score = 0;
+    questionCount = 0;
+    currentPan = generateRandomPan();
+    currentAudioPath = getRandomAudioFile();
+    
+    // İlk ses dosyasını yükle
+    if (!audioContext) initAudio();
+    await loadAudioFile(currentAudioPath);
+    
+    document.querySelector('.answer-feedback').style.display = 'none';
+    document.getElementById('pan-next-btn').style.display = 'none';
+    document.getElementById('pan-new-game-btn').style.display = 'none';
+    document.getElementById('pan-guess-btn').style.display = 'block';
+    document.getElementById('pan-slider').disabled = false;
+    document.getElementById('pan-slider').value = 0;
+    document.getElementById('play-original').disabled = false;
+    document.getElementById('play-modified').disabled = false;
+    
     document.getElementById('pan-score').textContent = score;
     document.getElementById('pan-question-count').textContent = questionCount;
 }
 
-// Calculate and award XP
-function calculateXP() {
-    const accuracy = (score / (MAX_QUESTIONS * 100)) * 100;
-    let xp = Math.round(accuracy * 10); // 10 XP per accuracy point
-    
-    // Show XP notification
-    const notification = document.getElementById('pan-xp-notification');
-    document.getElementById('pan-xp-gained').textContent = xp;
-    document.getElementById('pan-final-accuracy').textContent = accuracy.toFixed(1);
-    notification.style.display = 'block';
-    
-    // Add XP to user's total (assuming there's a function to do this)
-    if (typeof addXP === 'function') {
-        addXP(xp);
-    }
-    
-    // Hide notification after 3 seconds
-    setTimeout(() => {
-        notification.style.display = 'none';
-        // Reset game
-        score = 0;
-        questionCount = 0;
-        updateScore();
-        startNewRound();
-    }, 3000);
-}
-
-// Check if game is complete
-function checkGameComplete() {
-    if (questionCount >= MAX_QUESTIONS) {
-        calculateXP();
-        return true;
-    }
-    return false;
-}
-
-// Continue to next question
-function nextQuestion() {
-    if (!checkGameComplete()) {
-        document.getElementById('pan-next-btn').style.display = 'none';
-        document.getElementById('play-original').disabled = false;
-        document.getElementById('play-modified').disabled = false;
-        document.getElementById('pan-slider').disabled = false;
-        startNewRound();
+function getFeedbackMessage(difference) {
+    if (difference === 0) {
+        return { message: "Mükemmel! Tam isabet!", icon: "🎯" };
+    } else if (difference <= 10) {
+        return { message: "Çok iyi! Neredeyse tam tutturdun!", icon: "🌟" };
+    } else if (difference <= 20) {
+        return { message: "İyi! Doğru yoldasın.", icon: "👍" };
+    } else if (difference <= 30) {
+        return { message: "Fena değil, biraz daha pratik yapmalısın.", icon: "💪" };
+    } else {
+        return { message: "Daha çok çalışmalısın. Tekrar dene!", icon: "💫" };
     }
 }
 
-// Update pan value display when slider moves
-document.getElementById('pan-slider').addEventListener('input', function() {
-    document.getElementById('pan-value').textContent = this.value;
+// End game
+function endGame() {
+    const earnedXP = Math.round(score * 0.5);
+    document.getElementById('pan-next-btn').style.display = 'none';
+    document.getElementById('pan-guess-btn').style.display = 'none';
+    document.getElementById('pan-new-game-btn').style.display = 'block';
+    document.getElementById('play-original').disabled = true;
+    document.getElementById('play-modified').disabled = true;
+
+    // Son tahmin farkını hesapla
+    const lastGuess = parseInt(document.getElementById('guessed-pan').textContent);
+    const lastCorrect = parseInt(document.getElementById('correct-pan').textContent);
+    const difference = Math.abs(lastGuess - lastCorrect);
+    const feedback = getFeedbackMessage(difference);
+
+    const modalHtml = `
+        <div class="modal fade" id="gameResultModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Tebrikler!</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="result-icon mb-3">${feedback.icon}</div>
+                        <h4 class="mb-3">Oyun Tamamlandı</h4>
+                        <p class="feedback-message mb-3">${feedback.message}</p>
+                        <div class="score-info mb-3">
+                            <p class="mb-2">Skorunuz: <strong>${score}/100</strong></p>
+                            <p class="mb-0">Kazanılan XP: <strong>${earnedXP}</strong></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Tamam</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('gameResultModal'));
+    modal.show();
+
+    document.getElementById('gameResultModal').addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
+
+    const user = firebase.auth().currentUser;
+    if (user) {
+        const userRef = firebase.firestore().collection('users').doc(user.uid);
+        userRef.get().then((doc) => {
+            if (doc.exists) {
+                const currentXP = doc.data().xp || 0;
+                userRef.update({
+                    xp: currentXP + earnedXP
+                });
+            }
+        });
+    }
+}
+
+// Initialize game on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    await initGame();
+    
+    // Play button listeners
+    document.getElementById('play-original').addEventListener('click', async function() {
+        await playOriginalSound();
+    });
+    document.getElementById('play-modified').addEventListener('click', async function() {
+        await playModifiedSound();
+    });
+    
+    // Guess button listener
+    document.getElementById('pan-guess-btn').addEventListener('click', function() {
+        const guessedPan = parseFloat(document.getElementById('pan-slider').value);
+        checkPanGuess(guessedPan);
+    });
+    
+    // Next button listener
+    document.getElementById('pan-next-btn').addEventListener('click', async function() {
+        await nextQuestion();
+    });
+    
+    // New game button listener
+    document.getElementById('pan-new-game-btn').addEventListener('click', async function() {
+        await initGame();
+    });
+    
+    // Pan slider listener
+    document.getElementById('pan-slider').addEventListener('input', function(e) {
+        document.getElementById('pan-value').textContent = parseFloat(e.target.value).toFixed(2);
+    });
 });
-
-// Event Listeners
-document.getElementById('play-original').addEventListener('click', playOriginalSound);
-document.getElementById('play-modified').addEventListener('click', playModifiedSound);
-document.getElementById('pan-guess-btn').addEventListener('click', checkPanGuess);
-document.getElementById('pan-next-btn').addEventListener('click', nextQuestion);
-
-// Initialize first round
-startNewRound();

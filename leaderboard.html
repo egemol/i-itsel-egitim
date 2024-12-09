@@ -36,20 +36,20 @@
             </div>
 
             <div class="leaderboard-content">
-                <table id="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th>Sıra</th>
-                            <th>Kullanıcı</th>
-                            <th>Seviye</th>
-                            <th>Puan</th>
-                            <th>Son Oyun</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-body">
-                        <!-- JavaScript ile doldurulacak -->
-                    </tbody>
-                </table>
+                <div class="row" id="leaderboard-container">
+                    <!-- Kartlar JS ile doldurulacak -->
+                    <template id="user-card-template">
+                        <div class="col-md-4 mb-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title user-name">Kullanıcı Adı</h5>
+                                    <p class="card-text">XP: <span class="user-xp">0</span></p>
+                                    <p class="card-text">Seviye: <span class="user-level">0</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
 

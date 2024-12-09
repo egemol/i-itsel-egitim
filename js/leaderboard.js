@@ -1,170 +1,191 @@
 // Sayfa yüklendiğinde
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Kullanıcı kontrolü
-    const userData = localStorage.getItem('userData');
-    if (!userData) {
+    const auth = getAuth();
+    const db = getFirestore();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
 
     // Kullanıcı bilgilerini göster
-    const user = JSON.parse(userData);
-    document.getElementById('user-name').textContent = user.name;
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    if (!userDoc.exists()) {
+        window.location.href = 'index.html';
+        return;
+    }
+    const user = userDoc.data();
+    document.getElementById('user-name').textContent = user.username;
     document.getElementById('user-level').textContent = `Seviye ${user.level}`;
 
-    // Sıralamayı göster
-    showLeaderboard('xp');
+    // Liderlik tablosunu güncelle
+    updateLeaderboard();
     
     // Arkadaş listesini göster
     showFriends();
 });
 
-// Sıralamayı göster
-function showLeaderboard(type) {
-    // Tab'ları güncelle
-    document.querySelectorAll('.leaderboard-tabs .tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelector(`.leaderboard-tabs .tab[onclick*='${type}']`).classList.add('active');
-
-    // Tüm kullanıcıları al
-    const users = Object.values(JSON.parse(localStorage.getItem('users') || '{}'));
-    const tbody = document.getElementById('leaderboard-body');
-    if (!tbody) return;
-
-    // Sıralama kriterine göre kullanıcıları sırala
-    users.sort((a, b) => {
-        switch(type) {
-            case 'xp':
-                return b.xp - a.xp;
-            case 'frequency':
-                return (b.stats?.frequency?.highScore || 0) - (a.stats?.frequency?.highScore || 0);
-            case 'volume':
-                return (b.stats?.volume?.highScore || 0) - (a.stats?.volume?.highScore || 0);
-            case 'pan':
-                return (b.stats?.pan?.highScore || 0) - (a.stats?.pan?.highScore || 0);
-            default:
-                return b.xp - a.xp;
+// Kullanıcı adını getir
+async function getUserDisplayName(uid) {
+    try {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) {
+            return userDoc.data().username;
         }
-    });
-
-    // Tabloyu temizle
-    tbody.innerHTML = '';
-
-    // Kullanıcının arkadaşlarını al
-    const currentUser = JSON.parse(localStorage.getItem('userData'));
-    const friends = currentUser.friends || [];
-
-    // Tüm kullanıcıları göster
-    users.forEach((user, index) => {
-        const row = document.createElement('tr');
-        const isFriend = friends.includes(user.email);
-        const isCurrentUser = user.email === currentUser.email;
-        
-        // Arkadaşlar ve kullanıcının kendisi vurgulanır
-        if (isFriend || isCurrentUser) {
-            row.classList.add(isCurrentUser ? 'current-user' : 'friend');
-        }
-
-        const lastGame = user.lastGame ? new Date(user.lastGame).toLocaleDateString() : '-';
-        
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${user.name} ${isCurrentUser ? '(Sen)' : (isFriend ? '(Arkadaş)' : '')}</td>
-            <td>${user.level || 1}</td>
-            <td>${type === 'xp' ? user.xp : (user.stats?.[type]?.highScore || 0)}</td>
-            <td>${lastGame}</td>
-        `;
-        tbody.appendChild(row);
-    });
+        return null;
+    } catch (error) {
+        console.error("Error getting username:", error);
+        return null;
+    }
 }
 
 // Arkadaşları göster
-function showFriends() {
-    const currentUser = JSON.parse(localStorage.getItem('userData'));
-    const friends = currentUser.friends || [];
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+async function showFriends() {
     const friendsList = document.getElementById('friends-list');
+    if (!friendsList) return;
 
-    friendsList.innerHTML = '';
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
 
-    if (friends.length === 0) {
-        friendsList.innerHTML = '<p>Henüz arkadaşın yok.</p>';
-        return;
-    }
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (!userDoc.exists()) return;
 
-    friends.forEach(friendEmail => {
-        const friend = users[friendEmail];
-        if (friend) {
-            const div = document.createElement('div');
-            div.className = 'friend-item';
-            div.innerHTML = `
-                <div class="friend-info">
-                    <span>${friend.name}</span>
-                    <span>Seviye ${friend.level}</span>
-                </div>
-                <button onclick="removeFriend('${friendEmail}')" class="remove-friend">Çıkar</button>
-            `;
-            friendsList.appendChild(div);
+        const friends = userDoc.data().friends || [];
+        
+        friendsList.innerHTML = '';
+        
+        for (const friendId of friends) {
+            const friendUsername = await getUserDisplayName(friendId);
+            if (friendUsername) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <span>${friendUsername}</span>
+                    <button class="btn btn-danger btn-sm" onclick="removeFriend('${friendId}')">Çıkar</button>
+                `;
+                friendsList.appendChild(li);
+            }
         }
-    });
+    } catch (error) {
+        console.error("Error showing friends:", error);
+        friendsList.innerHTML = '<li class="list-group-item text-danger">Arkadaş listesi yüklenirken bir hata oluştu.</li>';
+    }
 }
 
 // Arkadaş ekle
-function addFriend() {
-    const friendEmail = document.getElementById('friend-email').value;
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
-    const currentUser = JSON.parse(localStorage.getItem('userData'));
+async function addFriend(friendEmail) {
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return false;
 
-    if (!users[friendEmail]) {
-        alert('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.');
-        return;
+        // Arkadaş kullanıcısını bul
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", friendEmail));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            alert('Kullanıcı bulunamadı');
+            return false;
+        }
+
+        const friendDoc = querySnapshot.docs[0];
+        const friendId = friendDoc.id;
+
+        // Kendini arkadaş olarak eklemeyi engelle
+        if (friendId === currentUser.uid) {
+            alert('Kendinizi arkadaş olarak ekleyemezsiniz');
+            return false;
+        }
+
+        // Kullanıcının arkadaş listesini güncelle
+        const userRef = doc(db, "users", currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) return false;
+
+        const friends = userDoc.data().friends || [];
+        
+        if (friends.includes(friendId)) {
+            alert('Bu kullanıcı zaten arkadaş listenizde');
+            return false;
+        }
+
+        await updateDoc(userRef, {
+            friends: [...friends, friendId]
+        });
+
+        showFriends();
+        return true;
+    } catch (error) {
+        console.error("Error adding friend:", error);
+        alert('Arkadaş eklenirken bir hata oluştu');
+        return false;
     }
-
-    if (friendEmail === currentUser.email) {
-        alert('Kendinizi arkadaş olarak ekleyemezsiniz.');
-        return;
-    }
-
-    if (!currentUser.friends) {
-        currentUser.friends = [];
-    }
-
-    if (currentUser.friends.includes(friendEmail)) {
-        alert('Bu kullanıcı zaten arkadaş listenizde.');
-        return;
-    }
-
-    // Arkadaş listesine ekle
-    currentUser.friends.push(friendEmail);
-    localStorage.setItem('userData', JSON.stringify(currentUser));
-
-    // Users veritabanını güncelle
-    users[currentUser.email].friends = currentUser.friends;
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // Arkadaş listesini yenile
-    showFriends();
-    showLeaderboard('xp');
-    
-    // Input'u temizle
-    document.getElementById('friend-email').value = '';
 }
 
 // Arkadaş çıkar
-function removeFriend(friendEmail) {
-    const currentUser = JSON.parse(localStorage.getItem('userData'));
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+async function removeFriend(friendId) {
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return false;
 
-    // Arkadaş listesinden çıkar
-    currentUser.friends = currentUser.friends.filter(email => email !== friendEmail);
-    localStorage.setItem('userData', JSON.stringify(currentUser));
+        const userRef = doc(db, "users", currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) return false;
 
-    // Users veritabanını güncelle
-    users[currentUser.email].friends = currentUser.friends;
-    localStorage.setItem('users', JSON.stringify(users));
+        const friends = userDoc.data().friends || [];
+        const updatedFriends = friends.filter(id => id !== friendId);
 
-    // Arkadaş listesini yenile
-    showFriends();
-    showLeaderboard('xp');
+        await updateDoc(userRef, {
+            friends: updatedFriends
+        });
+
+        showFriends();
+        return true;
+    } catch (error) {
+        console.error("Error removing friend:", error);
+        alert('Arkadaş çıkarılırken bir hata oluştu');
+        return false;
+    }
+}
+
+// Liderlik tablosunu güncelle
+function updateLeaderboard() {
+    const container = document.getElementById('leaderboard-container');
+    const template = document.getElementById('user-card-template');
+    
+    container.innerHTML = ''; // Mevcut kartları temizle
+    
+    // Firestore'dan kullanıcıları al
+    firebase.firestore().collection('users')
+        .orderBy('xp', 'desc') // XP'ye göre sırala
+        .limit(9) // İlk 9 kullanıcıyı al
+        .get()
+        .then((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                const userData = doc.data();
+                
+                // Template'i klonla
+                const card = template.content.cloneNode(true);
+                
+                // Kart içeriğini güncelle
+                card.querySelector('.user-name').textContent = userData.displayName || 'İsimsiz Kullanıcı';
+                card.querySelector('.user-xp').textContent = userData.xp || 0;
+                card.querySelector('.user-level').textContent = calculateLevel(userData.xp || 0);
+                
+                // Kartı container'a ekle
+                container.appendChild(card);
+            });
+        })
+        .catch((error) => {
+            console.error("Error getting leaderboard data: ", error);
+        });
+}
+
+// XP'den seviye hesapla
+function calculateLevel(xp) {
+    return Math.floor(Math.sqrt(xp / 100)) + 1;
 }

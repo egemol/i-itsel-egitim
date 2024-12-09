@@ -25,14 +25,14 @@
                     <li class="nav-item">
                         <a class="nav-link" href="games.html">Oyunlar</a>
                     </li>
-                    <li class="nav-item" id="profile-nav-item" style="display: none;">
-                        <a class="nav-link" href="profile.html">Profilim</a>
+                    <li class="nav-item auth-required" style="display: none;">
+                        <a class="nav-link" href="profile.html">Profil</a>
                     </li>
-                    <li class="nav-item" id="auth-links">
-                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Giriş Yap</a>
+                    <li class="nav-item auth-required" style="display: none;">
+                        <button onclick="logoutUser()" class="btn btn-outline-light">Çıkış Yap</button>
                     </li>
-                    <li class="nav-item" id="user-links" style="display: none;">
-                        <a class="nav-link" href="#" id="logout-button">Çıkış Yap</a>
+                    <li class="nav-item no-auth-required">
+                        <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#loginModal">Giriş Yap</button>
                     </li>
                 </ul>
             </div>
@@ -40,7 +40,7 @@
     </nav>
 
     <!-- Guest Notice -->
-    <div class="alert alert-warning" role="alert" style="display: none;">
+    <div class="alert alert-warning" role="alert" id="guest-notice" style="display: none;">
         <i class="fas fa-exclamation-circle"></i>
         Misafir modundasınız. İlerlemenizi kaydetmek için <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">giriş yapın</a> veya <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal">kayıt olun</a>.
     </div>
@@ -49,48 +49,155 @@
     <div class="container py-5">
         <div class="game-section" id="frequency">
             <h2 class="text-center mb-4">Frekans Tahmin Oyunu</h2>
+            <div class="score-section text-center mb-4">
+                <p class="score-display">Skor: <span id="frequency-score">0</span>/100</p>
+                <p class="score-display">Soru: <span id="frequency-question-count">0</span>/10</p>
+            </div>
             <div class="game-controls text-center">
                 <div class="mb-4">
                     <button id="play-original" class="btn btn-primary btn-lg me-2">Orjinal Sesi Çal</button>
                     <button id="play-modified" class="btn btn-primary btn-lg">Düzenlenmiş Sesi Çal</button>
                 </div>
                 <div class="slider-container mb-4">
-                    <div class="position-relative">
-                        <div class="correct-answer-marker" id="frequency-correct-marker" style="display: none;"></div>
-                        <input type="range" min="1.301" max="4.301" step="0.001" value="2.801" class="form-range" id="frequency-slider">
-                    </div>
+                    <div id="frequency-correct-marker"></div>
+                    <input type="range" class="form-range" id="frequency-slider" min="20" max="20000" value="20">
                     <div class="d-flex justify-content-between">
-                        <span>20Hz</span>
-                        <span>20kHz</span>
-                    </div>
-                    <div class="answer-feedback mt-2" style="display: none;">
-                        <p class="mb-0">Doğru Cevap: <span id="correct-frequency">0</span> Hz</p>
-                        <p class="mb-0">Tahmininiz: <span id="guessed-frequency">0</span> Hz</p>
+                        <span>20 Hz</span>
+                        <span id="current-frequency-display">1 kHz</span>
+                        <span>20 kHz</span>
                     </div>
                 </div>
-                <button id="freq-guess-btn" class="btn btn-success btn-lg mb-3">Tahmin Et</button>
-                <button id="freq-next-btn" class="btn btn-primary btn-lg mb-3" style="display: none;">Devam Et</button>
-            </div>
-            <div class="score-section text-center mb-4">
-                <p>Skor: <span id="frequency-score" class="score-display">0</span></p>
-                <p>Doğruluk: <span id="frequency-accuracy" class="score-display">0</span>%</p>
-                <p>Soru: <span id="frequency-question-count" class="score-display">0</span>/10</p>
+                <div class="text-center mb-4">
+                    <button id="submitGuess" class="btn btn-success">Tahmin Et</button>
+                    <button id="freq-next-btn" class="btn btn-primary" style="display: none;">Devam Et</button>
+                </div>
+                <div class="answer-feedback mb-4" style="display: none;">
+                    <div class="alert feedback-card">
+                        <h4 class="text-center mb-3"></h4>
+                        <p class="feedback-message mb-3"></p>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Doğru frekans:</span>
+                            <strong><span id="correct-freq">0</span> Hz</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Tahmininiz:</span>
+                            <strong><span id="guessed-freq">0</span> Hz</strong>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="xp-notification" id="frequency-xp-notification">
-        <h3>Tebrikler!</h3>
-        <p>Kazandığınız XP: <span id="frequency-xp-gained">0</span></p>
+
+    <!-- Results Modal -->
+    <div class="modal fade" id="resultsModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sonuç</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <h4 id="frequency-result">Doğru Frekans: <span>0</span> Hz</h4>
+                    <h4 id="frequency-guess">Tahmininiz: <span>0</span> Hz</h4>
+                    <h4 id="frequency-accuracy">Doğruluk: <span>0</span>%</h4>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Devam Et</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Final Results -->
+    <div class="container text-center mt-4" id="finalResults" style="display: none;">
+        <h2>Oyun Bitti!</h2>
         <p>Toplam Doğruluk: <span id="frequency-final-accuracy">0</span>%</p>
+    </div>
+
+    <!-- Giriş Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Giriş Yap</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Şifre</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
+                    </form>
+                    <div class="mt-3 text-center">
+                        <p>Hesabınız yok mu? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">Kayıt Ol</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kayıt Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kayıt Ol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Şifre</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerNickname" class="form-label">Kullanıcı Adı</label>
+                            <input type="text" class="form-control" id="registerNickname" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Kayıt Ol</button>
+                    </form>
+                    <div class="mt-3 text-center">
+                        <p>Zaten hesabınız var mı? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Giriş Yap</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
-    <script src="js/firebase-config.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBW2u7YAytD6kMLdrll-iJ81KvvLxxI0d4",
+            authDomain: "isitsel-egitim.firebaseapp.com",
+            projectId: "isitsel-egitim",
+            storageBucket: "isitsel-egitim.firebasestorage.app",
+            messagingSenderId: "467496581737",
+            appId: "1:467496581737:web:627fac8574c2a7c89a80f8",
+            measurementId: "G-HZ3TVZN3P7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+    </script>
+    
     <script src="js/auth.js"></script>
     <script src="js/frequency-game.js"></script>
 </body>

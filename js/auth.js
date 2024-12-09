@@ -1,215 +1,98 @@
-// Modal yönetimi
-let loginModal, registerModal, forgotPasswordModal;
+// Firebase Auth state değişikliklerini dinle
+firebase.auth().onAuthStateChanged((user) => {
+    updateUIForUser(user);
+});
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Firebase'in yüklendiğinden emin ol
-    if (typeof firebase === 'undefined') {
-        console.error('Firebase yüklenemedi!');
-        return;
+// UI'ı kullanıcı durumuna göre güncelle
+function updateUIForUser(user) {
+    const authRequired = document.querySelectorAll('.auth-required');
+    const noAuthRequired = document.querySelectorAll('.no-auth-required');
+    const guestNotice = document.getElementById('guest-notice');
+
+    if (user) {
+        // Kullanıcı giriş yapmışsa
+        authRequired.forEach(element => element.style.display = 'block');
+        noAuthRequired.forEach(element => element.style.display = 'none');
+        if (guestNotice) guestNotice.style.display = 'none';
+    } else {
+        // Kullanıcı giriş yapmamışsa
+        authRequired.forEach(element => element.style.display = 'none');
+        noAuthRequired.forEach(element => element.style.display = 'block');
+        if (guestNotice) guestNotice.style.display = 'block';
     }
+}
 
-    // Modal nesnelerini oluştur
-    loginModal = new bootstrap.Modal(document.getElementById('loginModal'), {
-        backdrop: 'static',
-        keyboard: false
-    });
-    
-    registerModal = new bootstrap.Modal(document.getElementById('registerModal'), {
-        backdrop: 'static',
-        keyboard: false
-    });
-    
-    forgotPasswordModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'), {
-        backdrop: 'static',
-        keyboard: false
-    });
-
-    // Oturum durumunu dinle
-    firebase.auth().onAuthStateChanged((user) => {
-        updateUIForAuthState(user);
-    });
-
-    // Form dinleyicilerini ekle
-    setupFormListeners();
-
-    // Çıkış yap
-    const logoutButton = document.getElementById('logout-button');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', () => {
-            firebase.auth().signOut().catch((error) => {
-                console.error('Çıkış hatası:', error);
-            });
+// Eğitime başla butonu kontrolü
+document.addEventListener('DOMContentLoaded', () => {
+    const startTrainingBtn = document.getElementById('startTrainingBtn');
+    if (startTrainingBtn) {
+        startTrainingBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = 'games.html';
         });
     }
 });
 
-// UI güncelleme fonksiyonu
-function updateUIForAuthState(user) {
-    // UI elementlerini seç
-    const welcomeName = document.getElementById('welcome-name');
-    const authLinks = document.getElementById('auth-links');
-    const userLinks = document.getElementById('user-links');
-    const xpDisplay = document.querySelector('.xp-display');
-    const gameButtons = document.querySelectorAll('.game-button');
-    const guestNotices = document.querySelectorAll('.alert-warning');
-    const profileNavItem = document.getElementById('profile-nav-item');
-
-    if (user) {
-        // Kullanıcı giriş yapmış
-        if (welcomeName) welcomeName.textContent = user.displayName || user.email;
-        if (authLinks) authLinks.style.display = 'none';
-        if (userLinks) userLinks.style.display = 'block';
-        if (xpDisplay) xpDisplay.style.display = 'block';
-        if (profileNavItem) profileNavItem.style.display = 'block';
-
-        // Tüm misafir uyarılarını gizle
-        guestNotices.forEach(notice => {
-            if (notice && notice.classList.contains('alert-warning')) {
-                notice.style.display = 'none';
-            }
-        });
-
-        // Oyun butonlarını etkinleştir
-        gameButtons.forEach(button => {
-            if (button) button.disabled = false;
-        });
-
-    } else {
-        // Misafir kullanıcı
-        if (welcomeName) welcomeName.textContent = 'Misafir';
-        if (authLinks) authLinks.style.display = 'block';
-        if (userLinks) userLinks.style.display = 'none';
-        if (xpDisplay) xpDisplay.style.display = 'none';
-        if (profileNavItem) profileNavItem.style.display = 'none';
-
-        // Tüm misafir uyarılarını göster
-        guestNotices.forEach(notice => {
-            if (notice && notice.classList.contains('alert-warning')) {
-                notice.style.display = 'block';
-            }
-        });
-
-        // Oyun butonlarını yine de etkinleştir
-        gameButtons.forEach(button => {
-            if (button) button.disabled = false;
-        });
-    }
-}
-
-// Form dinleyicilerini ayarla
-function setupFormListeners() {
-    // Login form
+// Login form submit
+document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
+        loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
-            
-            try {
-                await firebase.auth().signInWithEmailAndPassword(email, password);
-                hideLoginModal();
-                // Sayfayı yenileme veya yönlendirme yapmıyoruz
-                // window.location.href = 'games.html';
-            } catch (error) {
-                console.error('Giriş hatası:', error);
-                alert('Giriş yapılamadı: ' + error.message);
-            }
+
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .then(() => {
+                    // Başarılı giriş
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+                    modal.hide();
+                    window.location.href = 'games.html';
+                })
+                .catch((error) => {
+                    alert('Giriş başarısız: ' + error.message);
+                });
         });
     }
+});
 
-    // Register form
+// Register form submit
+document.addEventListener('DOMContentLoaded', () => {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
-        registerForm.addEventListener('submit', async (e) => {
+        registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
             const nickname = document.getElementById('registerNickname').value;
-            
-            try {
-                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-                await userCredential.user.updateProfile({
-                    displayName: nickname
-                });
-                hideRegisterModal();
-                // Sayfayı yenileme veya yönlendirme yapmıyoruz
-                // window.location.href = 'games.html';
-            } catch (error) {
-                console.error('Kayıt hatası:', error);
-                alert('Kayıt olunamadı: ' + error.message);
-            }
-        });
-    }
 
-    // Forgot password form
-    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-    if (forgotPasswordForm) {
-        forgotPasswordForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('resetEmail').value;
-            
-            // Kullanıcının e-posta adresini kullanarak şifre sıfırlama e-postası gönderir
-            firebase.auth().sendPasswordResetEmail(email)
+            firebase.auth().createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Kullanıcı adını güncelle
+                    return userCredential.user.updateProfile({
+                        displayName: nickname
+                    });
+                })
                 .then(() => {
-                    // Şifre sıfırlama e-postası başarıyla gönderildi
-                    console.log("Şifre sıfırlama e-postası gönderildi.");
-                    hideForgotPasswordModal();
-                    alert('Şifre sıfırlama linki e-posta adresinize gönderildi.\nLütfen spam klasörünü de kontrol edin.');
+                    // Başarılı kayıt
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('registerModal'));
+                    modal.hide();
+                    window.location.href = 'games.html';
                 })
                 .catch((error) => {
-                    // Hata oluştu
-                    console.error("Hata:", error);
-                    alert('Hata: ' + error.message);
+                    alert('Kayıt başarısız: ' + error.message);
                 });
         });
     }
-}
-
-// Modal gösterme/gizleme fonksiyonları
-function showLoginModal() {
-    loginModal.show();
-}
-
-function hideLoginModal() {
-    loginModal.hide();
-    document.body.classList.remove('modal-open');
-    const backdrop = document.querySelector('.modal-backdrop');
-    if (backdrop) backdrop.remove();
-}
-
-function showRegisterModal() {
-    registerModal.show();
-}
-
-function hideRegisterModal() {
-    registerModal.hide();
-    document.body.classList.remove('modal-open');
-    const backdrop = document.querySelector('.modal-backdrop');
-    if (backdrop) backdrop.remove();
-}
-
-function showForgotPasswordModal() {
-    hideLoginModal();
-    setTimeout(() => {
-        forgotPasswordModal.show();
-    }, 300);
-}
-
-function hideForgotPasswordModal() {
-    forgotPasswordModal.hide();
-    document.body.classList.remove('modal-open');
-    const backdrop = document.querySelector('.modal-backdrop');
-    if (backdrop) backdrop.remove();
-}
+});
 
 // Çıkış yap
-function logout() {
-    firebase.auth().signOut().then(() => {
-        // Sayfayı yenileme yerine sadece state'i güncelliyoruz
-        // window.location.href = 'index.html';
-    }).catch((error) => {
-        console.error('Çıkış hatası:', error);
-        alert('Çıkış yapılamadı: ' + error.message);
-    });
+function logoutUser() {
+    firebase.auth().signOut()
+        .then(() => {
+            window.location.href = 'index.html';
+        })
+        .catch((error) => {
+            alert('Çıkış başarısız: ' + error.message);
+        });
 }

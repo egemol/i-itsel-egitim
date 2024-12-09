@@ -25,14 +25,14 @@
                     <li class="nav-item">
                         <a class="nav-link" href="games.html">Oyunlar</a>
                     </li>
-                    <li class="nav-item" id="profile-nav-item" style="display: none;">
-                        <a class="nav-link" href="profile.html">Profilim</a>
+                    <li class="nav-item auth-required" style="display: none;">
+                        <a class="nav-link" href="profile.html">Profil</a>
                     </li>
-                    <li class="nav-item" id="auth-links">
-                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Giriş Yap</a>
+                    <li class="nav-item auth-required" style="display: none;">
+                        <button onclick="logoutUser()" class="btn btn-outline-light">Çıkış Yap</button>
                     </li>
-                    <li class="nav-item" id="user-links" style="display: none;">
-                        <a class="nav-link" href="#" id="logout-button">Çıkış Yap</a>
+                    <li class="nav-item no-auth-required">
+                        <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#loginModal">Giriş Yap</button>
                     </li>
                 </ul>
             </div>
@@ -43,53 +43,142 @@
     <div class="container py-5">
         <div class="game-section" id="volume">
             <h2 class="text-center mb-4">Ses Seviyesi Tahmin Oyunu</h2>
+            <div class="score-section text-center mb-4">
+                <p class="score-display">Skor: <span id="volume-score">0</span>/100</p>
+                <p class="score-display">Soru: <span id="volume-question-count">0</span>/10</p>
+            </div>
             <div class="game-controls text-center">
                 <div class="mb-4">
-                    <button id="play-original" class="btn btn-primary btn-lg me-2">Orjinal Sesi Çal</button>
-                    <button id="play-modified" class="btn btn-primary btn-lg">Düzenlenmiş Sesi Çal</button>
+                    <button id="play-original" class="btn btn-primary me-2">Orijinal Sesi Çal</button>
+                    <button id="play-modified" class="btn btn-primary">Düzenlenmiş Sesi Çal</button>
                 </div>
+                
                 <div class="volume-options mb-4">
                     <div class="row justify-content-center">
                         <div class="col-md-4">
-                            <button class="btn btn-outline-primary w-100 mb-2 volume-guess-btn" data-value="-24">-24 dB</button>
+                            <button class="btn btn-outline-primary w-100 mb-2 volume-option" data-volume="-6">-6 dB</button>
                         </div>
                         <div class="col-md-4">
-                            <button class="btn btn-outline-primary w-100 mb-2 volume-guess-btn" data-value="0">0 dB</button>
+                            <button class="btn btn-outline-primary w-100 mb-2 volume-option" data-volume="0">0 dB</button>
                         </div>
                         <div class="col-md-4">
-                            <button class="btn btn-outline-primary w-100 mb-2 volume-guess-btn" data-value="24">+24 dB</button>
+                            <button class="btn btn-outline-primary w-100 mb-2 volume-option" data-volume="6">+6 dB</button>
                         </div>
                     </div>
                 </div>
-                <button id="vol-next-btn" class="btn btn-primary btn-lg mb-3" style="display: none;">Devam Et</button>
-            </div>
-            <div class="score-display text-center">
-                <div class="row">
-                    <div class="col-6">
-                        <h4>Skor</h4>
-                        <p class="display-4"><span id="volume-score">0</span>/10</p>
+
+                <div class="answer-feedback mb-4" style="display: none;">
+                    <div class="alert feedback-card">
+                        <h4 class="text-center mb-3"></h4>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Doğru ses seviyesi:</span>
+                            <strong><span id="correct-volume">0</span> dB</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Tahmininiz:</span>
+                            <strong><span id="guessed-volume">0</span> dB</strong>
+                        </div>
                     </div>
-                    <div class="col-6">
-                        <h4>Doğruluk</h4>
-                        <p class="display-4"><span id="volume-accuracy">0</span>%</p>
-                    </div>
+                </div>
+
+                <div class="text-center mb-4">
+                    <button id="volume-next-btn" class="btn btn-primary" style="display: none;">Devam Et</button>
+                    <button id="volume-new-game-btn" class="btn btn-success" style="display: none;">Yeni Oyun</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Guest Notice -->
-    <div class="alert alert-warning" role="alert" style="display: none;">
+    <div class="alert alert-warning" role="alert" id="guest-notice" style="display: none;">
         <i class="fas fa-exclamation-circle"></i>
         Misafir modundasınız. İlerlemenizi kaydetmek için <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">giriş yapın</a> veya <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal">kayıt olun</a>.
     </div>
 
+    <!-- Giriş Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Giriş Yap</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Şifre</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
+                    </form>
+                    <div class="mt-3 text-center">
+                        <p>Hesabınız yok mu? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">Kayıt Ol</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kayıt Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kayıt Ol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Şifre</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerNickname" class="form-label">Kullanıcı Adı</label>
+                            <input type="text" class="form-control" id="registerNickname" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Kayıt Ol</button>
+                    </form>
+                    <div class="mt-3 text-center">
+                        <p>Zaten hesabınız var mı? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Giriş Yap</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBW2u7YAytD6kMLdrll-iJ81KvvLxxI0d4",
+            authDomain: "isitsel-egitim.firebaseapp.com",
+            projectId: "isitsel-egitim",
+            storageBucket: "isitsel-egitim.firebasestorage.app",
+            messagingSenderId: "467496581737",
+            appId: "1:467496581737:web:627fac8574c2a7c89a80f8",
+            measurementId: "G-HZ3TVZN3P7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+    </script>
+    
+    <script src="js/auth.js"></script>
     <script src="js/volume-game.js"></script>
 </body>
 </html>

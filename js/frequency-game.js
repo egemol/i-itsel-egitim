@@ -1,22 +1,12 @@
-// Web Audio API context
-let audioContext;
-let gainNode;
-let currentSource = null;
-let filterNode = null;
-
 // Game state
 let score = 0;
 let questionCount = 0;
-let currentFrequency = 0;
+let currentFrequency = null;
+let currentSource = null;
+let filterNode = null;
+let gainNode = null;
+let audioContext = null;
 let currentAudioFile = null;
-const MAX_QUESTIONS = 10;
-
-// Frequency levels in Hz
-const frequencies = [100, 250, 500, 1000, 2000, 4000, 8000];
-
-// Initialize Firebase Storage
-const storage = firebase.storage();
-const storageRef = storage.ref();
 
 // Available audio files
 const audioFileNames = [
@@ -30,7 +20,7 @@ const audioFileNames = [
 function getRandomAudioFile() {
     if (!currentAudioFile) {
         const randomFile = audioFileNames[Math.floor(Math.random() * audioFileNames.length)];
-        currentAudioFile = `/audio/${randomFile}`;
+        currentAudioFile = `audio/${randomFile}`;
     }
     return currentAudioFile;
 }
@@ -44,7 +34,82 @@ function initAudio() {
     }
 }
 
-// Stop current sound if playing
+// Convert slider value to frequency (logarithmic scale)
+function sliderToFrequency(value) {
+    const minFreq = Math.log10(20);
+    const maxFreq = Math.log10(20000);
+    const scale = (value / 1000) * (maxFreq - minFreq) + minFreq;
+    return Math.round(Math.pow(10, scale));
+}
+
+// Generate random frequency
+function generateRandomFrequency() {
+    const minFreq = Math.log10(20);
+    const maxFreq = Math.log10(20000);
+    const randomLog = Math.random() * (maxFreq - minFreq) + minFreq;
+    return Math.round(Math.pow(10, randomLog));
+}
+
+// Play original sound
+async function playOriginalSound() {
+    if (!audioContext) initAudio();
+    stopCurrentSound();
+    
+    try {
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        currentSource = audioContext.createBufferSource();
+        currentSource.buffer = audioBuffer;
+        
+        currentSource.connect(gainNode);
+        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+        
+        currentSource.start();
+        currentSource.onended = stopCurrentSound;
+    } catch (error) {
+        console.error('Error playing original sound:', error);
+    }
+}
+
+// Play modified sound
+async function playModifiedSound() {
+    if (!currentFrequency) return;
+    if (!audioContext) initAudio();
+    stopCurrentSound();
+    
+    try {
+        const audioPath = getRandomAudioFile();
+        const response = await fetch(audioPath);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        currentSource = audioContext.createBufferSource();
+        currentSource.buffer = audioBuffer;
+        
+        // Create bandpass filter
+        filterNode = audioContext.createBiquadFilter();
+        filterNode.type = 'bandpass';
+        filterNode.frequency.value = currentFrequency;
+        filterNode.Q.value = 5;
+        
+        const gainNode2 = audioContext.createGain();
+        gainNode2.gain.value = 15; // Ses seviyesini artırdık
+        
+        currentSource.connect(filterNode);
+        filterNode.connect(gainNode2);
+        gainNode2.connect(gainNode);
+        
+        currentSource.start();
+        currentSource.onended = stopCurrentSound;
+    } catch (error) {
+        console.error('Error playing modified sound:', error);
+    }
+}
+
+// Stop current sound
 function stopCurrentSound() {
     if (currentSource) {
         try {
@@ -52,6 +117,7 @@ function stopCurrentSound() {
         } catch (e) {
             // Ignore errors if sound is already stopped
         }
+        currentSource.disconnect();
         currentSource = null;
     }
     if (filterNode) {
@@ -60,252 +126,200 @@ function stopCurrentSound() {
     }
 }
 
-// Generate random frequency
-function generateRandomFrequency() {
-    return frequencies[Math.floor(Math.random() * frequencies.length)];
-}
-
-// Get three random frequency options including the correct one
-function getFrequencyOptions(correctFreq) {
-    let options = [correctFreq];
+// Initialize game
+async function initGame() {
+    score = 0;
+    questionCount = 0;
     
-    while (options.length < 3) {
-        const randomFreq = frequencies[Math.floor(Math.random() * frequencies.length)];
-        if (!options.includes(randomFreq)) {
-            options.push(randomFreq);
-        }
-    }
-    
-    // Shuffle options
-    return options.sort(() => Math.random() - 0.5);
-}
-
-// Load audio file from Netlify
-async function loadAudioFile(frequency) {
-    try {
-        const audioPath = getRandomAudioFile();
-        const response = await fetch(audioPath);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        return audioBuffer;
-    } catch (error) {
-        console.warn('Failed to load audio file:', error);
-        return generateSineWave(frequency);
-    }
-}
-
-async function playSound(frequency, isModified = false) {
-    try {
-        const audioPath = getRandomAudioFile();
-        const response = await fetch(audioPath);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        stopCurrentSound();
-        
-        currentSource = audioContext.createBufferSource();
-        currentSource.buffer = audioBuffer;
-        
-        if (isModified) {
-            // Create bandpass filter for modified sound
-            const filter = audioContext.createBiquadFilter();
-            filter.type = 'bandpass';
-            filter.frequency.value = frequency;
-            filter.Q.value = 1;
-            
-            // Connect nodes: source -> filter -> gain -> destination
-            currentSource.connect(filter);
-            filter.connect(gainNode);
-        } else {
-            // Connect nodes for original sound: source -> gain -> destination
-            currentSource.connect(gainNode);
-        }
-        
-        gainNode.connect(audioContext.destination);
-        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
-        currentSource.start();
-        
-        setTimeout(() => {
-            stopCurrentSound();
-        }, 2000);
-    } catch (error) {
-        console.error('Error playing sound:', error);
-        playFallbackSound(frequency);
-    }
-}
-
-// Play original sound
-async function playOriginalSound() {
-    await playSound(currentFrequency, false);
-}
-
-// Play modified sound
-async function playModifiedSound() {
-    await playSound(currentFrequency, true);
-}
-
-// Fallback sound function
-function playFallbackSound(frequency) {
-    console.warn('Using fallback sine wave sound');
-    stopCurrentSound();
-    
-    currentSource = audioContext.createOscillator();
-    currentSource.type = 'sine';
-    currentSource.frequency.setValueAtTime(frequency, audioContext.currentTime);
-    
-    // Create and configure filter for fallback
-    filterNode = audioContext.createBiquadFilter();
-    filterNode.type = "peaking";
-    filterNode.frequency.value = frequency;
-    filterNode.Q.value = 1;
-    filterNode.gain.value = 15;
-    
-    currentSource.connect(filterNode);
-    filterNode.connect(gainNode);
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    currentSource.start();
-    
-    // Stop after 2 seconds
-    setTimeout(() => {
-        stopCurrentSound();
-    }, 2000);
-}
-
-// Update frequency buttons with new options
-function updateFrequencyButtons(options) {
-    const buttons = document.querySelectorAll('.freq-guess-btn');
-    buttons.forEach((button, index) => {
-        button.textContent = `${options[index]} Hz`;
-        button.dataset.value = options[index];
-    });
-}
-
-// Start new game round
-function startNewRound() {
-    initAudio();
-    stopCurrentSound();
-    currentFrequency = generateRandomFrequency();
-    currentAudioFile = getRandomAudioFile();
-    document.getElementById('frequency-slider').value = Math.log10(1000 / 20) + 1.301; // Reset to 1kHz
-    document.getElementById('freq-guess-btn').style.display = 'block';
-    document.getElementById('frequency-slider').disabled = false;
     document.querySelector('.answer-feedback').style.display = 'none';
-    document.getElementById('frequency-correct-marker').style.display = 'none';
+    document.getElementById('freq-next-btn').style.display = 'none';
+    document.getElementById('freq-new-game-btn').style.display = 'none';
+    document.getElementById('submitGuess').style.display = 'block';
+    document.getElementById('frequency-slider').disabled = false;
+    document.getElementById('frequency-slider').value = 20;
+    document.getElementById('play-original').disabled = false;
+    document.getElementById('play-modified').disabled = false;
+    
+    document.getElementById('freq-score').textContent = score;
+    document.getElementById('freq-question-count').textContent = questionCount;
+    
+    currentFrequency = generateRandomFrequency();
+    await loadAudioFile();
 }
 
-// Check user's frequency guess
-function checkFrequencyGuess() {
-    const slider = document.getElementById('frequency-slider');
-    const guessedFreq = Math.round(Math.pow(10, parseFloat(slider.value) - 1.301) * 20);
-    
-    // Calculate accuracy based on octave difference
-    const ratio = Math.max(guessedFreq, currentFrequency) / Math.min(guessedFreq, currentFrequency);
-    const octaveDiff = Math.log2(ratio);
-    
-    // Calculate points (max 100 points)
-    let points = 0;
-    if (octaveDiff <= 1/6) { // Within 1/6 octave
-        points = 100;
-    } else if (octaveDiff <= 1/3) { // Within 1/3 octave
-        points = 75;
-    } else if (octaveDiff <= 1/2) { // Within 1/2 octave
-        points = 50;
-    } else if (octaveDiff <= 1) { // Within 1 octave
-        points = 25;
+function getFeedbackMessage(difference) {
+    if (difference === 0) {
+        return { message: "Mükemmel! Tam isabet!", icon: "🎯" };
+    } else if (difference <= 10) {
+        return { message: "Çok iyi! Neredeyse tam tutturdun!", icon: "🌟" };
+    } else if (difference <= 20) {
+        return { message: "İyi! Doğru yoldasın.", icon: "👍" };
+    } else if (difference <= 30) {
+        return { message: "Fena değil, biraz daha pratik yapmalısın.", icon: "💪" };
+    } else {
+        return { message: "Daha çok çalışmalısın. Tekrar dene!", icon: "💫" };
     }
+}
+
+function checkFrequencyGuess(guessedFreq) {
+    if (!currentFrequency) return;
     
-    // Update score with weighted points
-    score += points;
+    const difference = Math.abs(guessedFreq - currentFrequency);
     questionCount++;
     
-    // Show answer feedback
-    document.querySelector('.answer-feedback').style.display = 'block';
-    document.getElementById('correct-frequency').textContent = currentFrequency;
-    document.getElementById('guessed-frequency').textContent = guessedFreq;
+    if (difference <= 10) {
+        score += 10;
+    }
     
-    // Show correct answer marker
+    document.getElementById('freq-score').textContent = score;
+    document.getElementById('freq-question-count').textContent = questionCount;
+    
+    // Doğru cevap göstergesini ekle
     const marker = document.getElementById('frequency-correct-marker');
-    const sliderWidth = slider.offsetWidth;
-    const sliderMin = parseFloat(slider.min);
-    const sliderMax = parseFloat(slider.max);
-    const correctValue = Math.log10(currentFrequency / 20) + 1.301;
-    const position = ((correctValue - sliderMin) / (sliderMax - sliderMin)) * sliderWidth;
-    
     marker.style.display = 'block';
-    marker.style.left = `${position}px`;
+    const sliderRange = Math.log10(20000) - Math.log10(20);
+    const targetPosition = ((Math.log10(currentFrequency) - Math.log10(20)) / sliderRange) * 100;
+    marker.style.left = `${targetPosition}%`;
     
-    // Update accuracy display
-    const accuracy = (score / (questionCount * 100)) * 100;
-    document.getElementById('frequency-accuracy').textContent = accuracy.toFixed(1);
+    const feedback = getFeedbackMessage(difference);
+    const feedbackDiv = document.querySelector('.answer-feedback');
+    feedbackDiv.style.display = 'block';
     
-    // Show next button and disable controls
-    document.getElementById('freq-guess-btn').style.display = 'none';
+    const feedbackCard = feedbackDiv.querySelector('.feedback-card');
+    feedbackCard.className = `alert feedback-card ${difference <= 10 ? 'alert-success' : 'alert-danger'}`;
+    feedbackCard.innerHTML = `
+        <h4 class="text-center mb-3">${feedback.icon}</h4>
+        <p class="feedback-message mb-3">${feedback.message}</p>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>Doğru frekans:</span>
+            <strong><span id="correct-freq">${currentFrequency}</span> Hz</strong>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+            <span>Tahmininiz:</span>
+            <strong><span id="guessed-freq">${guessedFreq}</span> Hz</strong>
+        </div>
+    `;
+    
+    document.getElementById('submitGuess').style.display = 'none';
     document.getElementById('freq-next-btn').style.display = 'block';
+    document.getElementById('frequency-slider').disabled = true;
     document.getElementById('play-original').disabled = true;
     document.getElementById('play-modified').disabled = true;
-    document.getElementById('frequency-slider').disabled = true;
     
-    updateScore();
-}
-
-// Update score display
-function updateScore() {
-    document.getElementById('frequency-score').textContent = score;
-    document.getElementById('frequency-question-count').textContent = questionCount;
-}
-
-// Calculate and award XP
-function calculateXP() {
-    const accuracy = (score / (MAX_QUESTIONS * 100)) * 100;
-    let xp = Math.round(accuracy * 10); // 10 XP per accuracy point
-    
-    // Show XP notification
-    const notification = document.getElementById('frequency-xp-notification');
-    document.getElementById('frequency-xp-gained').textContent = xp;
-    document.getElementById('frequency-final-accuracy').textContent = accuracy.toFixed(1);
-    notification.style.display = 'block';
-    
-    // Add XP to user's total (assuming there's a function to do this)
-    if (typeof addXP === 'function') {
-        addXP(xp);
-    }
-    
-    // Hide notification after 3 seconds
-    setTimeout(() => {
-        notification.style.display = 'none';
-        // Reset game
-        score = 0;
-        questionCount = 0;
-        updateScore();
-        startNewRound();
-    }, 3000);
-}
-
-// Check if game is complete
-function checkGameComplete() {
-    if (questionCount >= MAX_QUESTIONS) {
-        calculateXP();
-        return true;
-    }
-    return false;
-}
-
-// Continue to next question
-function nextQuestion() {
-    if (!checkGameComplete()) {
-        document.getElementById('freq-next-btn').style.display = 'none';
-        document.getElementById('play-original').disabled = false;
-        document.getElementById('play-modified').disabled = false;
-        document.getElementById('frequency-slider').disabled = false;
-        startNewRound();
+    if (questionCount >= 10) {
+        endGame();
     }
 }
 
-// Event Listeners
-document.getElementById('play-original').addEventListener('click', playOriginalSound);
-document.getElementById('play-modified').addEventListener('click', playModifiedSound);
-document.getElementById('freq-guess-btn').addEventListener('click', checkFrequencyGuess);
-document.getElementById('freq-next-btn').addEventListener('click', nextQuestion);
+// Move to next question
+async function nextQuestion() {
+    document.querySelector('.answer-feedback').style.display = 'none';
+    document.getElementById('freq-next-btn').style.display = 'none';
+    document.getElementById('submitGuess').style.display = 'block';
+    document.getElementById('frequency-slider').disabled = false;
+    document.getElementById('frequency-slider').value = 20;
+    document.getElementById('frequency-correct-marker').style.display = 'none';
+    document.getElementById('play-original').disabled = false;
+    document.getElementById('play-modified').disabled = false;
+    
+    currentFrequency = generateRandomFrequency();
+    await loadAudioFile();
+}
 
-// Initialize first round
-startNewRound();
+// End game
+function endGame() {
+    const earnedXP = Math.round(score * 0.5);
+    document.getElementById('freq-next-btn').style.display = 'none';
+    document.getElementById('submitGuess').style.display = 'none';
+    document.getElementById('freq-new-game-btn').style.display = 'block';
+    document.getElementById('play-original').disabled = true;
+    document.getElementById('play-modified').disabled = true;
+
+    // Son tahmin farkını hesapla
+    const lastGuess = parseInt(document.getElementById('guessed-freq').textContent);
+    const lastCorrect = parseInt(document.getElementById('correct-freq').textContent);
+    const difference = Math.abs(lastGuess - lastCorrect);
+    const feedback = getFeedbackMessage(difference);
+
+    const modalHtml = `
+        <div class="modal fade" id="gameResultModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Tebrikler!</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="result-icon mb-3">${feedback.icon}</div>
+                        <h4 class="mb-3">Oyun Tamamlandı</h4>
+                        <p class="feedback-message mb-3">${feedback.message}</p>
+                        <div class="score-info mb-3">
+                            <p class="mb-2">Skorunuz: <strong>${score}/100</strong></p>
+                            <p class="mb-0">Kazanılan XP: <strong>${earnedXP}</strong></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Tamam</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('gameResultModal'));
+    modal.show();
+
+    document.getElementById('gameResultModal').addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
+
+    const user = firebase.auth().currentUser;
+    if (user) {
+        const userRef = firebase.firestore().collection('users').doc(user.uid);
+        userRef.get().then((doc) => {
+            if (doc.exists) {
+                const currentXP = doc.data().xp || 0;
+                userRef.update({
+                    xp: currentXP + earnedXP
+                });
+            }
+        });
+    }
+}
+
+// Initialize game on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    await initGame();
+    
+    // Event listeners for play buttons
+    document.getElementById('play-original').addEventListener('click', async function() {
+        await playOriginalSound();
+    });
+    document.getElementById('play-modified').addEventListener('click', async function() {
+        await playModifiedSound();
+    });
+    
+    // Event listener for submit button
+    document.getElementById('submitGuess').addEventListener('click', function() {
+        const guessedFreq = parseInt(document.getElementById('frequency-slider').value);
+        checkFrequencyGuess(guessedFreq);
+    });
+    
+    // Event listener for next button
+    document.getElementById('freq-next-btn').addEventListener('click', async function() {
+        await nextQuestion();
+    });
+    
+    // Event listener for slider
+    document.getElementById('frequency-slider').addEventListener('input', function(e) {
+        const freq = sliderToFrequency(e.target.value);
+        document.getElementById('current-frequency-display').textContent = `${freq} Hz`;
+    });
+});
+
+// Update display
+function updateDisplay() {
+    document.getElementById('freq-score').textContent = score;
+    document.getElementById('freq-question-count').textContent = questionCount;
+}
