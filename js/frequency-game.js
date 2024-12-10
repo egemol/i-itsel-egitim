@@ -289,15 +289,17 @@ function endGame() {
 }
 
 // Initialize game on page load
-document.addEventListener('DOMContentLoaded', async function() {
-    await initGame();
+document.addEventListener('DOMContentLoaded', function() {
+    initAudio();
+    initGame();
     
     // Event listeners for play buttons
-    document.getElementById('play-original').addEventListener('click', async function() {
-        await playOriginalSound();
+    document.getElementById('play-original').addEventListener('click', function() {
+        playOriginalSound();
     });
-    document.getElementById('play-modified').addEventListener('click', async function() {
-        await playModifiedSound();
+    
+    document.getElementById('play-modified').addEventListener('click', function() {
+        playModifiedSound();
     });
     
     // Event listener for submit button
@@ -307,8 +309,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     
     // Event listener for next button
-    document.getElementById('freq-next-btn').addEventListener('click', async function() {
-        await nextQuestion();
+    document.getElementById('freq-next-btn').addEventListener('click', function() {
+        nextQuestion();
     });
     
     // Event listener for slider

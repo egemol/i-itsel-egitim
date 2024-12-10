@@ -264,15 +264,17 @@ function endGame() {
 }
 
 // Initialize game on page load
-document.addEventListener('DOMContentLoaded', async function() {
-    await initGame();
+document.addEventListener('DOMContentLoaded', function() {
+    initAudio();
+    initGame();
     
     // Play button listeners
-    document.getElementById('play-original').addEventListener('click', async function() {
-        await playOriginalSound();
+    document.getElementById('play-original').addEventListener('click', function() {
+        playOriginalSound();
     });
-    document.getElementById('play-modified').addEventListener('click', async function() {
-        await playModifiedSound();
+    
+    document.getElementById('play-modified').addEventListener('click', function() {
+        playModifiedSound();
     });
     
     // Guess button listener
@@ -282,13 +284,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     
     // Next button listener
-    document.getElementById('pan-next-btn').addEventListener('click', async function() {
-        await nextQuestion();
-    });
-    
-    // New game button listener
-    document.getElementById('pan-new-game-btn').addEventListener('click', async function() {
-        await initGame();
+    document.getElementById('pan-next-btn').addEventListener('click', function() {
+        nextQuestion();
     });
     
     // Pan slider listener
